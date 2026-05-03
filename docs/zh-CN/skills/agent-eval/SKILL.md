@@ -18,9 +18,16 @@ tools: Read, Write, Edit, Bash, Grep, Glob
 
 ## 安装
 
+> **安全说明：** 从个人 GitHub 仓库安装前，请先审查源代码。
+> 访问 [github.com/joaquinhuigomez/agent-eval](https://github.com/joaquinhuigomez/agent-eval)，
+> 检查代码后再决定是否安装。
+
 ```bash
-# pinned to v0.1.0 — latest stable commit
-pip install git+https://github.com/joaquinhuigomez/agent-eval.git@6d062a2f5cda6ea443bf5d458d361892c04e749b
+# 克隆仓库并在本地安装（先审查代码）
+git clone https://github.com/joaquinhuigomez/agent-eval.git
+cd agent-eval
+# 审查代码...
+pip install -e .
 ```
 
 ## 核心概念

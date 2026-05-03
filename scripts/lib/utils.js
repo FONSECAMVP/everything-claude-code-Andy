@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execSync, spawnSync } = require('child_process');
+const { spawnSync } = require('child_process');
 
 // Platform detection
 const isWindows = process.platform === 'win32';
@@ -93,7 +93,7 @@ function getTimeString() {
  * Get the git repository name
  */
 function getGitRepoName() {
-  const result = runCommand('git rev-parse --show-toplevel');
+  const result = runCommand('git', ['rev-parse', '--show-toplevel']);
   if (!result.success) return null;
   return path.basename(result.output);
 }
@@ -329,47 +329,38 @@ function commandExists(cmd) {
 }
 
 /**
- * Run a command and return output
+ * Run a command and return output.
  *
- * SECURITY NOTE: This function executes shell commands. Only use with
- * trusted, hardcoded commands. Never pass user-controlled input directly.
- * For user input, use spawnSync with argument arrays instead.
+ * Uses spawnSync with an argument array — no shell interpolation, no injection risk.
  *
- * @param {string} cmd - Command to execute (should be trusted/hardcoded)
- * @param {object} options - execSync options
+ * @param {string} bin - Executable name (e.g. 'git')
+ * @param {string[]} args - Argument array (e.g. ['rev-parse', '--show-toplevel'])
+ * @param {object} options - spawnSync options (e.g. { cwd, timeout })
+ * @returns {{ success: boolean, output: string }}
  */
-function runCommand(cmd, options = {}) {
-  // Allowlist: only permit known-safe command prefixes
-  const allowedPrefixes = ['git ', 'node ', 'npx ', 'which ', 'where '];
-  if (!allowedPrefixes.some(prefix => cmd.startsWith(prefix))) {
-    return { success: false, output: 'runCommand blocked: unrecognized command prefix' };
+function runCommand(bin, args = [], options = {}) {
+  const result = spawnSync(bin, args, {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'pipe'],
+    ...options
+  });
+
+  if (result.error) {
+    return { success: false, output: result.error.message };
   }
 
-  // Reject shell metacharacters. $() and backticks are evaluated inside
-  // double quotes, so block $ and ` anywhere in cmd. Other operators
-  // (;|&) are literal inside quotes, so only check unquoted portions.
-  const unquoted = cmd.replace(/"[^"]*"/g, '').replace(/'[^']*'/g, '');
-  if (/[;|&\n]/.test(unquoted) || /[`$]/.test(cmd)) {
-    return { success: false, output: 'runCommand blocked: shell metacharacters not allowed' };
+  if (result.status !== 0) {
+    return { success: false, output: (result.stderr || '').trim() };
   }
 
-  try {
-    const result = execSync(cmd, {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-      ...options
-    });
-    return { success: true, output: result.trim() };
-  } catch (err) {
-    return { success: false, output: err.stderr || err.message };
-  }
+  return { success: true, output: (result.stdout || '').trim() };
 }
 
 /**
  * Check if current directory is a git repository
  */
 function isGitRepo() {
-  return runCommand('git rev-parse --git-dir').success;
+  return runCommand('git', ['rev-parse', '--git-dir']).success;
 }
 
 /**
@@ -381,7 +372,7 @@ function isGitRepo() {
 function getGitModifiedFiles(patterns = []) {
   if (!isGitRepo()) return [];
 
-  const result = runCommand('git diff --name-only HEAD');
+  const result = runCommand('git', ['diff', '--name-only', 'HEAD']);
   if (!result.success) return [];
 
   let files = result.output.split('\n').filter(Boolean);

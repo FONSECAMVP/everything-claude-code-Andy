@@ -82,10 +82,18 @@ The ECC OpenCode configuration includes translated hooks:
 ### 1. Install OpenCode
 
 ```bash
-# Install OpenCode CLI
+# Install OpenCode CLI (recommended — no shell pipe)
 npm install -g opencode
-# or
-curl -fsSL https://opencode.ai/install | bash
+```
+
+If you prefer the shell installer, download and inspect it before running:
+
+```bash
+# Download first, inspect, then run
+curl -fsSL https://opencode.ai/install -o /tmp/opencode-install.sh
+cat /tmp/opencode-install.sh   # inspect before executing
+bash /tmp/opencode-install.sh
+rm /tmp/opencode-install.sh
 ```
 
 ### 2. Use the ECC OpenCode Configuration

@@ -387,13 +387,13 @@ function runTests() {
   })) passed++; else failed++;
 
   if (test('runCommand executes simple command', () => {
-    const result = utils.runCommand('node --version');
+    const result = utils.runCommand('node', ['--version']);
     assert.strictEqual(result.success, true);
     assert.ok(result.output.startsWith('v'), 'Should start with v');
   })) passed++; else failed++;
 
   if (test('runCommand handles failed command', () => {
-    const result = utils.runCommand('node --invalid-flag-12345');
+    const result = utils.runCommand('node', ['--invalid-flag-12345']);
     assert.strictEqual(result.success, false);
   })) passed++; else failed++;
 
@@ -836,14 +836,13 @@ function runTests() {
   console.log('\nrunCommand Edge Cases:');
 
   if (test('runCommand returns trimmed output', () => {
-    // Windows echo includes quotes in output, use node to ensure consistent behavior
-    const result = utils.runCommand('node -e "process.stdout.write(\'  hello  \')"');
+    const result = utils.runCommand('node', ['-e', "process.stdout.write('  hello  ')"]);
     assert.strictEqual(result.success, true);
     assert.strictEqual(result.output, 'hello', 'Should trim leading/trailing whitespace');
   })) passed++; else failed++;
 
   if (test('runCommand captures stderr on failure', () => {
-    const result = utils.runCommand('node -e "process.exit(1)"');
+    const result = utils.runCommand('node', ['-e', 'process.exit(1)']);
     assert.strictEqual(result.success, false);
     assert.ok(typeof result.output === 'string', 'Output should be a string on failure');
   })) passed++; else failed++;
@@ -971,123 +970,52 @@ function runTests() {
   console.log('\nrunCommand failure output (Round 31):');
 
   if (test('runCommand returns stderr content on failure when stderr exists', () => {
-    const result = utils.runCommand('node -e "process.stderr.write(\'custom error\'); process.exit(1)"');
+    const result = utils.runCommand('node', ['-e', "process.stderr.write('custom error'); process.exit(1)"]);
     assert.strictEqual(result.success, false);
     assert.ok(result.output.includes('custom error'), 'Should include stderr output');
   })) passed++; else failed++;
 
   if (test('runCommand returns error output on failed command', () => {
-    // Use an allowed prefix with a nonexistent subcommand to reach execSync
-    const result = utils.runCommand('git nonexistent-subcmd-xyz-12345');
+    const result = utils.runCommand('git', ['nonexistent-subcmd-xyz-12345']);
     assert.strictEqual(result.success, false);
     assert.ok(result.output.length > 0, 'Should have some error output');
   })) passed++; else failed++;
 
-  // ── runCommand security: allowlist and metacharacter blocking ──
-  console.log('\nrunCommand Security (allowlist + metacharacters):');
+  // ── runCommand security: spawnSync prevents shell injection by design ──
+  console.log('\nrunCommand Security (spawnSync — no shell interpretation):');
 
-  if (test('runCommand blocks disallowed command prefix', () => {
-    const result = utils.runCommand('rm -rf /');
+  if (test('runCommand fails for nonexistent binary', () => {
+    // spawnSync returns an error when the binary does not exist
+    const result = utils.runCommand('nonexistent-cmd-xyz-123', []);
     assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('unrecognized command prefix'), 'Should mention blocked prefix');
   })) passed++; else failed++;
 
-  if (test('runCommand blocks curl command', () => {
-    const result = utils.runCommand('curl http://example.com');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('unrecognized command prefix'));
+  if (test('runCommand treats shell metacharacters in args as literal strings', () => {
+    // With spawnSync, semicolons/pipes in args are passed literally to the process —
+    // they are NOT interpreted by a shell. node receives '; echo pwned' as a literal arg.
+    const result = utils.runCommand('node', ['-e', 'process.stdout.write("safe")']);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.output, 'safe');
   })) passed++; else failed++;
 
-  if (test('runCommand blocks bash command', () => {
-    const result = utils.runCommand('bash -c "echo hello"');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('unrecognized command prefix'));
+  if (test('runCommand: $ in arg is not expanded by shell', () => {
+    // spawnSync does not invoke a shell, so $(whoami) in an arg is a literal string.
+    // node -e receives it verbatim and prints it without substitution.
+    const result = utils.runCommand('node', ['-e', 'console.log(process.argv[1])', '$(whoami)']);
+    assert.strictEqual(result.success, true);
+    assert.strictEqual(result.output, '$(whoami)', 'Dollar-paren should be literal, not expanded');
   })) passed++; else failed++;
 
-  if (test('runCommand blocks semicolon command chaining', () => {
-    const result = utils.runCommand('git status; echo pwned');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('metacharacters not allowed'), 'Should block semicolon chaining');
-  })) passed++; else failed++;
-
-  if (test('runCommand blocks pipe command chaining', () => {
-    const result = utils.runCommand('git log | cat');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('metacharacters not allowed'), 'Should block pipe chaining');
-  })) passed++; else failed++;
-
-  if (test('runCommand blocks ampersand command chaining', () => {
-    const result = utils.runCommand('git status && echo pwned');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('metacharacters not allowed'), 'Should block ampersand chaining');
-  })) passed++; else failed++;
-
-  if (test('runCommand blocks dollar sign command substitution', () => {
-    const result = utils.runCommand('git log $(whoami)');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('metacharacters not allowed'), 'Should block $ substitution');
-  })) passed++; else failed++;
-
-  if (test('runCommand blocks backtick command substitution', () => {
-    const result = utils.runCommand('git log `whoami`');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('metacharacters not allowed'), 'Should block backtick substitution');
-  })) passed++; else failed++;
-
-  if (test('runCommand allows metacharacters inside double quotes', () => {
-    // Semicolon inside quotes should not trigger metacharacter blocking
-    const result = utils.runCommand('node -e "console.log(1);process.exit(0)"');
+  if (test('runCommand allows npx', () => {
+    const result = utils.runCommand('npx', ['--version']);
     assert.strictEqual(result.success, true);
   })) passed++; else failed++;
 
-  if (test('runCommand allows metacharacters inside single quotes', () => {
-    const result = utils.runCommand("node -e 'process.exit(0);'");
-    assert.strictEqual(result.success, true);
-  })) passed++; else failed++;
-
-  if (test('runCommand blocks unquoted metacharacters alongside quoted ones', () => {
-    // Semicolon inside quotes is safe, but && outside is not
-    const result = utils.runCommand('git log "safe;part" && echo pwned');
+  if (test('runCommand error message does not leak arg contents on binary-not-found', () => {
+    // spawnSync error.message for ENOENT is the binary name, not the args
+    const result = utils.runCommand('nonexistent-xyz', ['secret_password_123']);
     assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('metacharacters not allowed'));
-  })) passed++; else failed++;
-
-  if (test('runCommand blocks prefix without trailing space', () => {
-    // "gitconfig" starts with "git" but not "git " — must be blocked
-    const result = utils.runCommand('gitconfig --list');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('unrecognized command prefix'));
-  })) passed++; else failed++;
-
-  if (test('runCommand allows npx prefix', () => {
-    const result = utils.runCommand('npx --version');
-    assert.strictEqual(result.success, true);
-  })) passed++; else failed++;
-
-  if (test('runCommand blocks newline command injection', () => {
-    const result = utils.runCommand('git status\necho pwned');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('metacharacters not allowed'), 'Should block newline injection');
-  })) passed++; else failed++;
-
-  if (test('runCommand blocks $() inside double quotes (shell still evaluates)', () => {
-    // $() inside double quotes is still evaluated by the shell, so block $ everywhere
-    const result = utils.runCommand('node -e "$(whoami)"');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('metacharacters not allowed'), 'Should block $ inside quotes');
-  })) passed++; else failed++;
-
-  if (test('runCommand blocks backtick inside double quotes (shell still evaluates)', () => {
-    const result = utils.runCommand('node -e "`whoami`"');
-    assert.strictEqual(result.success, false);
-    assert.ok(result.output.includes('metacharacters not allowed'), 'Should block backtick inside quotes');
-  })) passed++; else failed++;
-
-  if (test('runCommand error message does not leak command string', () => {
-    const secret = 'rm secret_password_123';
-    const result = utils.runCommand(secret);
-    assert.strictEqual(result.success, false);
-    assert.ok(!result.output.includes('secret_password_123'), 'Should not leak command contents');
+    assert.ok(!result.output.includes('secret_password_123'), 'Should not leak arg contents in ENOENT error');
   })) passed++; else failed++;
 
   // ── Round 31: getGitModifiedFiles with empty patterns ──

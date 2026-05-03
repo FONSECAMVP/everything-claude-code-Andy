@@ -133,7 +133,7 @@ function runMain() {
 }
 
 function getSessionMetadata() {
-  const branchResult = runCommand('git rev-parse --abbrev-ref HEAD');
+  const branchResult = runCommand('git', ['rev-parse', '--abbrev-ref', 'HEAD']);
 
   return {
     project: getProjectName() || 'unknown',

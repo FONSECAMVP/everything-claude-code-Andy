@@ -237,8 +237,21 @@ PROMPT 1（协调器）              PROMPT 2（子代理）
 
 ### 安装
 
+> **安全说明：** 在运行安装脚本前，请先下载并检查内容，然后再执行。
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/AnandChowdhary/continuous-claude/HEAD/install.sh | bash
+# 步骤 1：下载脚本到本地（先不执行）
+curl -fsSL https://raw.githubusercontent.com/AnandChowdhary/continuous-claude/HEAD/install.sh \
+  -o /tmp/continuous-claude-install.sh
+
+# 步骤 2：检查脚本内容
+cat /tmp/continuous-claude-install.sh
+
+# 步骤 3：确认无误后再执行
+bash /tmp/continuous-claude-install.sh
+
+# 清理
+rm /tmp/continuous-claude-install.sh
 ```
 
 ### 用法

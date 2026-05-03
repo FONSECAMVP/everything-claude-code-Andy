@@ -322,10 +322,10 @@ description: 在 /help 中显示的简要描述
 
 ## 用法
 
-`​`​`
+```
 
 /your-command [args]
-`​`​`
+```
 
 
 ## 工作流程
